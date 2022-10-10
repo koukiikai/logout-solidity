@@ -1,5 +1,12 @@
 # デプロイまでの手順(testnet)
 
+# Enviroment variable
+
+.env ファイルを作成し、.env.template に従って以下の２つの変数を宣言して下さい。
+
+1. SECRET => ウォレットのシークレットキー
+2. BSCSCANAPIKEY => BSCScan の APIKEY
+
 ## compile
 
 ```
