@@ -26,6 +26,8 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
     bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     uint256[5] public tokenPrices;
+    address[] public whiteLists;
+    bool public locked;
 
     struct Datas {
         uint8 level;
@@ -35,6 +37,10 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
     }
 
     mapping (uint256 => Datas) data;
+    modifier checkWhiteList(address userAddress) {
+        require(!locked || (locked && exists(userAddress)));
+        _;
+    } 
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -61,6 +67,7 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
           0.14 * 10 ** 18,
           0.22 * 10 ** 18
         ];
+        locked = false;
     }
 
     function _baseURI() internal pure override returns (string memory) {
@@ -75,7 +82,7 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
         _unpause();
     }
 
-    function safeMint(address to, uint256 metaDataId) public payable returns(uint256) {
+    function safeMint(address to, uint256 metaDataId) public payable checkWhiteList(to) returns(uint256) {
         require(msg.value > tokenPrices[metaDataId - 1], "You must pay enough BNB");
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
@@ -172,6 +179,14 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
         return data[tokenId].metaId;
     }
 
+    function addWhiteList(address userAddress) public onlyRole(PAUSER_ROLE) {
+        whiteLists.push(userAddress);
+    }
+
+    function toggleLocked() public onlyRole(PAUSER_ROLE) {
+        locked = !locked;
+    }
+
     // util func
 
     function random(uint256 nonce) private view returns(uint8) {
@@ -185,5 +200,15 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
         for(uint i = 0; i < arr.length; i++)
             sum = sum + tokenPrices[i];
         return sum;
+    }
+
+    function exists(address userAddress) public view returns (bool) {
+        for (uint i = 0; i < whiteLists.length; i++) {
+            if (whiteLists[i] == userAddress) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
