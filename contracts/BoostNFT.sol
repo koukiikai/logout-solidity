@@ -38,7 +38,7 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
 
     mapping (uint256 => Datas) data;
     modifier checkWhiteList(address userAddress) {
-        require(!locked || (locked && exists(userAddress)));
+        require(!locked || (locked && exists(userAddress)), "this funcition is locked.");
         _;
     } 
 
@@ -82,8 +82,7 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
         _unpause();
     }
 
-    function safeMint(address to, uint256 metaDataId) public payable checkWhiteList(to) returns(uint256) {
-        require(msg.value > tokenPrices[metaDataId - 1], "You must pay enough BNB");
+    function mint(address to, uint256 metaDataId) private checkWhiteList(msg.sender) returns(uint256) {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
@@ -113,12 +112,17 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
         return tokenId;
     }
 
+    function safeMint(address to, uint256 metaDataId) public payable returns(uint256) {
+        require(msg.value > tokenPrices[metaDataId - 1], "You must pay enough BNB");
+        uint256 tokenId = mint(to, metaDataId);
+        return tokenId;
+    }
+
     function multiSafeMint(address to, uint256[] memory metaDataIds) public payable returns(uint256[] memory) {
-        require(getTotalPrice(metaDataIds) > msg.value, "You must pay enough BNB");
-        uint256[] memory ids;
-        for (uint i=0; i < metaDataIds.length; i++) {
-            uint256 id = safeMint(to, metaDataIds[i]);
-            ids[i] = id;
+        require(msg.value > getTotalPrice(metaDataIds), "You must pay enough BNB");
+        uint256[] memory ids = new uint256[](uint256(metaDataIds.length));
+        for (uint i = 0; i < metaDataIds.length; i++) {
+            ids[i] = mint(to, metaDataIds[i]);
         }
         return ids;
     }
@@ -194,11 +198,11 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
         return uint8(uint256(keccak256(abi.encodePacked(block.difficulty, block.timestamp, nonce))) % 251);
     }
 
-    function getTotalPrice(uint256[] memory arr) private view returns(uint256){
+    function getTotalPrice(uint256[] memory arr) public view returns(uint256){
         uint256 sum = 0;
             
         for(uint i = 0; i < arr.length; i++)
-            sum = sum + tokenPrices[i];
+            sum = sum + tokenPrices[arr[i] - 1];
         return sum;
     }
 
@@ -208,7 +212,10 @@ contract BoostNFT is Initializable, ERC721EnumerableUpgradeable, ERC721URIStorag
                 return true;
             }
         }
-
         return false;
+    }
+
+    function withdraw() external onlyRole(MINTER_ROLE) {
+        payable(msg.sender).transfer(address(this).balance);
     }
 }
